@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion,ObjectId } = require("mongodb");
 const app = express();
+const jwt = require('jsonwebtoken');
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 
@@ -17,10 +18,21 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+function verifyJwt(req, res, next){
+        
+
+}
+
 async function run() {
   try {
     const AllServices = client.db("Myservice").collection("ServiceCollection");
     const ReviewsCollection = client.db("Myservice").collection("reviews")
+
+    app.post('/jwt', (req, res) =>{
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d'})
+      res.send({token})
+  })  
 
     app.get("/services", async (req, res) => {
       const query = {};
@@ -30,6 +42,14 @@ async function run() {
 
       res.send(result);
     });
+
+    app.post('/services', async(req, res)=>{
+        const service = req.body;
+        const result = await AllServices.insertOne(service);
+        console.log(result);
+        res.send(result);
+    })
+
     app.get('/services/:id', async(req, res)=>{
         const id = req.params.id ;
         const query ={_id:ObjectId(id)}
@@ -38,6 +58,7 @@ async function run() {
         res.send(result)
         console.log(result);
     })
+
     app.get("/home", async (req, res) => {
       const query = {};
      const cursor = AllServices.find(query);
