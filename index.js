@@ -18,26 +18,28 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
-// function verifyJwt(req, res, next) {
-//   const authHeader = req.headers.authorization;
-//   if (!authHeader) {
-//     return res.status(401).send({ message: "unauthorized access 1" });
-//   }
-//   const token = authHeader.split(" ")[1];
+function verifyJwt(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "unauthorized access 1" });
+  }
+  const token = authHeader.split(" ")[1];
 
-//   jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded) {
-//     if (err) {
-//       return res.status(403).send({ message: "Forbidden access 1" });
-//     }
-//     req.decoded = decoded;
-//     next();
-//   });
-// }
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden access 1" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
 
 async function run() {
   try {
     const AllServices = client.db("Myservice").collection("ServiceCollection");
     const ReviewsCollection = client.db("Myservice").collection("reviews");
+
+    //jwttoken
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -48,22 +50,23 @@ async function run() {
       res.send({ token });
     });
 
+    //get all service
     app.get("/services", async (req, res) => {
       const query = {};
-      const cursor = AllServices.find(query);
+      const cursor = AllServices.find(query).sort({ time: -1 });
       console.log(cursor);
       const result = await cursor.toArray();
 
       res.send(result);
     });
-
+    //service post
     app.post("/services", async (req, res) => {
       const service = req.body;
       const result = await AllServices.insertOne(service);
 
       res.send(result);
     });
-
+    //service get by id
     app.get("/services/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
@@ -82,24 +85,26 @@ async function run() {
       res.send(result);
     });
 
+    //post review
     app.post("/reviews", async (req, res) => {
       const review = req.body;
       const result = await ReviewsCollection.insertOne(review);
       res.send(result);
     });
 
+    //update review
+
     app.patch("/reviews/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const filter = { _id: ObjectId(id) };
       const reviewUpdate = req.body;
       const options = { upsert: true };
-      console.log(reviewUpdate);
+
       const updateService = {
         $set: {
           serviceName: reviewUpdate.serviceName,
           Price: reviewUpdate.Price,
-          ratings: reviewUpdate.ratings
+          message: reviewUpdate.message,
         },
       };
       const result = await ReviewsCollection.updateOne(
@@ -111,22 +116,22 @@ async function run() {
       console.log(result);
     });
 
+    //get all review
     app.get("/reviews", async (req, res) => {
       const query = {};
-      const cursor = ReviewsCollection.find(query);
-      console.log(cursor);
+      const cursor = ReviewsCollection.find(query).sort({ time: -1 });
       const result = await cursor.toArray();
-      console.log(result);
+      // console.log(result);
 
       res.send(result);
     });
+    //get review by email
+    app.get("/reviews", verifyJwt, async (req, res) => {
+      const decoded = req.decoded;
 
-    app.get("/reviews", async (req, res) => {
-      // const decoded = req.decoded;
-
-      // if (decoded.email !== req.query.email) {
-      //   res.status(403).send({ message: "unauthorized access 2" });
-      // }
+      if (decoded.email !== req.query.email) {
+        res.status(403).send({ message: "unauthorized access 2" });
+      }
 
       let query = {};
       if (req.query.email) {
@@ -140,6 +145,7 @@ async function run() {
       res.send(review);
     });
 
+    //delete review
     app.delete("/reviews/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
